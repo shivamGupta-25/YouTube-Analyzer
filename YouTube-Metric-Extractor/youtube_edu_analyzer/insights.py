@@ -14,7 +14,8 @@ def aggregate_insights(analyses: list[dict]) -> dict:
 	# Shorts ratio median with safe denom and clipping to [0,1]
 	denom = df['avg_uploads_per_week'].replace(0, np.nan)
 	shorts_ratio_series = (df['avg_uploads_shorts_per_week'] / denom).clip(lower=0, upper=1)
-	insights['median_shorts_ratio'] = float(round(shorts_ratio_series.median(skipna=True), 2))
+	median_shorts = shorts_ratio_series.median(skipna=True)
+	insights['median_shorts_ratio'] = float(round(median_shorts, 2)) if pd.notna(median_shorts) else 0.0
 	insights['top_overall_topics'] = Counter([t for sub in df['top_topics'].dropna() for t in sub]).most_common(20)
 
 	suggestions: list[str] = []
@@ -22,10 +23,14 @@ def aggregate_insights(analyses: list[dict]) -> dict:
 	high_shorts = df[df['shorts_ratio']>0.5]
 	low_shorts = df[df['shorts_ratio']<=0.5]
 	if not high_shorts.empty and not low_shorts.empty:
-		if high_shorts['avg_views_sample'].mean() > low_shorts['avg_views_sample'].mean() * 1.3:
-			suggestions.append('Shorts-heavy channels tend to get higher avg views — consider a shorts-first strategy for reach.')
-		else:
-			suggestions.append('Maintain a healthy mix of shorts and long-form; long-form drives depth and conversions.')
+		# Calculate means with proper handling of NaN/inf values
+		high_views_mean = high_shorts['avg_views_sample'].replace([np.inf, -np.inf], np.nan).mean()
+		low_views_mean = low_shorts['avg_views_sample'].replace([np.inf, -np.inf], np.nan).mean()
+		if pd.notna(high_views_mean) and pd.notna(low_views_mean) and low_views_mean > 0:
+			if high_views_mean > low_views_mean * 1.3:
+				suggestions.append('Shorts-heavy channels tend to get higher avg views — consider a shorts-first strategy for reach.')
+			else:
+				suggestions.append('Maintain a healthy mix of shorts and long-form; long-form drives depth and conversions.')
 
 	# Correlation only if sufficient non-NaN data
 	valid_corr = df[['avg_uploads_per_week','avg_views_sample']].replace([np.inf, -np.inf], np.nan).dropna()
