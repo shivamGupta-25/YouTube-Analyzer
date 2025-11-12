@@ -1,31 +1,13 @@
 #!/usr/bin/env python3
-"""
-YouTube Channel Analysis Tool (Tkinter)
-
-Features:
-- Enter API key and channel ID / URL
-- Choose time window (last 1/2/5 months or custom date range)
-- Fetch videos from channel in the chosen date range
-- Retrieve metadata: title, description, views, likes, comments, publish date/time,
-  duration, category, video ID, tags, thumbnail URL, video URL
-- Compute metrics: avg views/day, like-to-view ratio, comment-to-view ratio
-- Display results in a Treeview and allow export to CSV
-- Open selected video in browser
-
-Limitations:
-- dislikeCount is no longer available via YouTube Data API and is not provided
-  by this tool.
-"""
+# -*- coding: utf-8 -*-
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import requests
-import math
 import datetime
 import time
 import re
 import webbrowser
-import csv
 import pandas as pd
 
 # ----------------------------
@@ -85,6 +67,7 @@ def resolve_channel_id(api_key: str, maybe_id_or_url: str) -> str:
         params["forUsername"] = name
         r = requests.get(YOUTUBE_API_CHANNELS, params=params)
         if r.ok:
+            r.encoding = 'utf-8'  # Ensure UTF-8 encoding
             js = r.json()
             if "items" in js and len(js["items"]) > 0:
                 return js["items"][0]["id"]
@@ -102,6 +85,7 @@ def resolve_channel_id(api_key: str, maybe_id_or_url: str) -> str:
         }
         r2 = requests.get(YOUTUBE_API_SEARCH, params=p2)
         if r2.ok:
+            r2.encoding = 'utf-8'  # Ensure UTF-8 encoding
             js2 = r2.json()
             items = js2.get("items", [])
             if items:
@@ -137,13 +121,23 @@ def safe_int(x):
         return None
 
 def sanitize_filename(name: str) -> str:
-    """Remove invalid characters from filename"""
-    # Replace invalid characters with underscore
-    invalid_chars = '<>:"/\\|?*'
+    """Remove invalid characters from filename, handling Unicode properly"""
+    if not name:
+        return "youtube_data"
+    # Ensure we have a Unicode string
+    name = str(name)
+    # Replace invalid characters with underscore (Windows filename restrictions)
+    invalid_chars = '<>:"/\\|?*\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
     for char in invalid_chars:
         name = name.replace(char, '_')
     # Remove leading/trailing spaces and dots
     name = name.strip('. ')
+    # Limit length to avoid Windows path issues (max 255 chars for filename)
+    if len(name) > 200:
+        name = name[:200]
+    # Ensure name is not empty after sanitization
+    if not name:
+        return "youtube_data"
     return name
 
 # ----------------------------
@@ -172,6 +166,7 @@ def fetch_video_ids_for_channel(api_key: str, channel_id: str, published_after_i
         r = requests.get(YOUTUBE_API_SEARCH, params=params)
         if not r.ok:
             raise RuntimeError(f"Search API error: {r.status_code} - {r.text}")
+        r.encoding = 'utf-8'  # Ensure UTF-8 encoding
         js = r.json()
         items = js.get("items", [])
         for it in items:
@@ -204,6 +199,7 @@ def fetch_videos_details(api_key: str, video_ids: list) -> list:
         r = requests.get(YOUTUBE_API_VIDEOS, params=params)
         if not r.ok:
             raise RuntimeError(f"Videos API error: {r.status_code} - {r.text}")
+        r.encoding = 'utf-8'  # Ensure UTF-8 encoding
         js = r.json()
         items = js.get("items", [])
         all_items.extend(items)
@@ -214,6 +210,7 @@ def get_channel_title(api_key: str, channel_id: str) -> str:
     params = {"part": "snippet", "id": channel_id, "key": api_key}
     r = requests.get(YOUTUBE_API_CHANNELS, params=params)
     if r.ok:
+        r.encoding = 'utf-8'  # Ensure UTF-8 encoding
         js = r.json()
         items = js.get("items", [])
         if items:
@@ -235,8 +232,9 @@ def items_to_dataframe(items: list) -> pd.DataFrame:
         stats = it.get("statistics", {})
         content = it.get("contentDetails", {})
         video_id = it.get("id")
-        title = snip.get("title", "")
-        description = snip.get("description", "")
+        # Ensure Unicode strings are properly handled
+        title = str(snip.get("title", "")) if snip.get("title") else ""
+        description = str(snip.get("description", "")) if snip.get("description") else ""
         publish_str = snip.get("publishedAt")
         try:
             publish_dt = iso8601_to_datetime(publish_str) if publish_str else None
@@ -245,26 +243,29 @@ def items_to_dataframe(items: list) -> pd.DataFrame:
         duration_iso = content.get("duration")
         duration_seconds = parse_iso8601_duration(duration_iso)
         category_id = snip.get("categoryId")
-        tags = snip.get("tags", [])
+        # Ensure tags are Unicode strings
+        tags = [str(tag) if tag else "" for tag in snip.get("tags", [])]
         thumbnail = snip.get("thumbnails", {}).get("high", {}).get("url") or snip.get("thumbnails", {}).get("default", {}).get("url")
         view_count = safe_int(stats.get("viewCount"))
         like_count = safe_int(stats.get("likeCount"))
         # dislikeCount no longer available
         comment_count = safe_int(stats.get("commentCount"))
 
-        # compute days since publish
+        # compute days since publish (using fractional days for accuracy)
         days_since = None
         if publish_dt:
             delta = now - publish_dt
-            days_since = max(1, delta.days)  # avoid divide by zero, treat <1 day as 1 day
+            # Use total_seconds for fractional days to get accurate avgViewsPerDay
+            # Minimum 0.1 days (2.4 hours) to avoid division by zero and handle very recent videos
+            days_since = max(0.1, delta.total_seconds() / 86400)
         avg_views_per_day = None
         if view_count is not None and days_since is not None:
             avg_views_per_day = view_count / days_since
         like_to_view = None
-        if like_count is not None and view_count and view_count > 0:
+        if like_count is not None and view_count is not None and view_count > 0:
             like_to_view = like_count / view_count
         comment_to_view = None
-        if comment_count is not None and view_count and view_count > 0:
+        if comment_count is not None and view_count is not None and view_count > 0:
             comment_to_view = comment_count / view_count
 
         rows.append({
@@ -511,8 +512,8 @@ class YouTubeAnalyzerApp(tk.Tk):
         if not fname:
             return
         try:
-            # Save df to CSV
-            self.df.to_csv(fname, index=False, encoding="utf-8")
+            # Save df to CSV with UTF-8 BOM for Excel compatibility on Windows
+            self.df.to_csv(fname, index=False, encoding="utf-8-sig")
             messagebox.showinfo("Exported", f"Saved CSV to: {fname}")
         except Exception as e:
             messagebox.showerror("Export error", f"Could not save file: {e}")
