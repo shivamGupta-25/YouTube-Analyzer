@@ -9,6 +9,7 @@ import time
 import re
 import webbrowser
 import pandas as pd
+from config import load_api_key
 
 # ----------------------------
 # Helper functions
@@ -309,7 +310,8 @@ class YouTubeAnalyzerApp(tk.Tk):
         frm_inputs.pack(fill=tk.X, padx=6, pady=6)
 
         ttk.Label(frm_inputs, text="YouTube API Key:").grid(row=0, column=0, sticky=tk.W)
-        self.entry_api = ttk.Entry(frm_inputs, width=64)
+        self.api_key_var = tk.StringVar(value=load_api_key())
+        self.entry_api = ttk.Entry(frm_inputs,textvariable=self.api_key_var, width=64)
         self.entry_api.grid(row=0, column=1, columnspan=3, sticky=tk.W, padx=4)
 
         ttk.Label(frm_inputs, text="Channel ID / URL:").grid(row=1, column=0, sticky=tk.W, pady=(6,0))
