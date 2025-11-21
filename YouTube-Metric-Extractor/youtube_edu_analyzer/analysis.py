@@ -1,3 +1,20 @@
+"""
+YouTube Channel Analysis Module
+
+This module provides functionality for analyzing YouTube channels and their videos.
+It extracts metrics, calculates statistics, and generates insights from video data.
+
+Key functions:
+- extract_channel_identifier: Parse channel URLs/IDs
+- analyze_channel: Compute comprehensive metrics for a channel
+- parse_duration_to_seconds: Convert ISO8601 duration to seconds
+
+Constants:
+- CTA_WORDS: Call-to-action keywords for marketing analysis
+- COMMUNITY_WORDS: Community-building keywords
+- MONET_WORDS: Monetization-related keywords
+- SHORTS_THRESHOLD_SECONDS: Duration threshold for YouTube Shorts (60s)
+"""
 import math
 import re
 from collections import Counter
@@ -41,21 +58,57 @@ CTA_WORDS = [
 COMMUNITY_WORDS = ['discord','telegram','community','facebook group','paid community','newsletter','live session','q&a','ask your doubt','join us']
 MONET_WORDS = ['sponsor','sponsored','affiliate','udemy','coursera','patreon','merch','adsense','brand']
 
-SHORTS_THRESHOLD_SECONDS = 60
-FUTURE_WEEKS = 26
+SHORTS_THRESHOLD_SECONDS = 60  # YouTube's official threshold for Shorts
+FUTURE_WEEKS = 26  # 6 months forecast period
 
-ISO8601_DURATION_RE = re.compile(r'P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?')
+# Improved ISO8601 duration regex to handle all valid formats
+# Supports: years (Y), months (M), weeks (W), days (D), hours (H), minutes (M), seconds (S)
+# Examples: PT1H30M, P1DT2H, P1W, P1Y2M3DT4H5M6S
+ISO8601_DURATION_RE = re.compile(
+	r'P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?'
+)
 
 
 def parse_duration_to_seconds(dur: str) -> int:
+	"""Parse ISO8601 duration string to total seconds.
+	
+	Supports all ISO8601 duration components:
+	- Years (P1Y) - approximated as 365 days
+	- Months (P1M) - approximated as 30 days
+	- Weeks (P1W) - 7 days
+	- Days (P1D)
+	- Hours (T1H)
+	- Minutes (T1M)
+	- Seconds (T1S)
+	
+	Note: Month and year conversions are approximations since actual lengths vary.
+	"""
+	if not dur:
+		return 0
 	m = ISO8601_DURATION_RE.match(dur)
 	if not m:
 		return 0
-	days = int(m.group(1)) if m.group(1) else 0
-	hours = int(m.group(2)) if m.group(2) else 0
-	minutes = int(m.group(3)) if m.group(3) else 0
-	seconds = int(m.group(4)) if m.group(4) else 0
-	return days * 86400 + hours * 3600 + minutes * 60 + seconds
+	
+	years = int(m.group(1)) if m.group(1) else 0
+	months = int(m.group(2)) if m.group(2) else 0
+	weeks = int(m.group(3)) if m.group(3) else 0
+	days = int(m.group(4)) if m.group(4) else 0
+	hours = int(m.group(5)) if m.group(5) else 0
+	minutes = int(m.group(6)) if m.group(6) else 0
+	seconds = float(m.group(7)) if m.group(7) else 0.0
+	
+	# Convert all components to seconds
+	# Note: Using 365 days/year and 30 days/month as approximations
+	total_seconds = (
+		years * 365 * 86400 +
+		months * 30 * 86400 +
+		weeks * 7 * 86400 +
+		days * 86400 +
+		hours * 3600 +
+		minutes * 60 +
+		seconds
+	)
+	return int(total_seconds)
 
 
 def extract_channel_identifier(url_or_id: str) -> str:
@@ -123,11 +176,21 @@ def analyze_channel(channel_item, video_items):
 		first_date = dfv_dates['publishedAt'].iloc[0]
 		last_date = dfv_dates['publishedAt'].iloc[-1]
 		days_span = (last_date - first_date).days
-		# Use actual days span, but ensure minimum of 1 day to avoid division by zero
-		# For same-day uploads, use 1 day (not 1 week) to get accurate per-week rate
+		
+		# Edge case handling for upload frequency calculations:
+		# - Same-day uploads: use 1 day span
+		# - Very new channels (< 7 days): use actual span to avoid inflated rates
+		# - Single video: treat as 1 week minimum to show realistic weekly rate
 		if days_span == 0:
 			days_span = 1
-		weeks_span = max(days_span / 7.0, 1.0 / 7.0)  # Minimum 1 day = 1/7 week
+		
+		# For single-video channels, use minimum 1 week to avoid showing
+		# unrealistic rates like "7 uploads/week" for a channel with 1 video
+		if len(dfv_dates) == 1:
+			weeks_span = 1.0  # Treat as 1 week minimum
+		else:
+			weeks_span = max(days_span / 7.0, 1.0 / 7.0)  # Minimum 1 day = 1/7 week
+		
 		# Count videos with valid dates for accurate per-week calculations
 		dated_videos_count = len(dfv_dates)
 		shorts_mask_dated = dfv_dates['duration_seconds'] <= SHORTS_THRESHOLD_SECONDS
@@ -186,13 +249,31 @@ def analyze_channel(channel_item, video_items):
 		if has_community:
 			videos_with_community_keywords += 1
 
+	# Extract topics from video titles
 	tokens = []
 	for t in dfv['title'].astype(str):
 		toks = re.findall(r"[A-Za-z0-9+#]+", t.lower())
 		tokens.extend(toks)
-	stopwords = set(['the','and','for','with','to','a','in','of','is','how','what','learn','tutorial','lesson','video','introduction','session'])
-	filtered = [w for w in tokens if w not in stopwords and len(w)>2]
-	top_topics = [w for w,c in Counter(filtered).most_common(20)]
+	
+	# Comprehensive stopword list to filter out common filler words
+	stopwords = set([
+		# Articles, prepositions, conjunctions
+		'the', 'and', 'for', 'with', 'to', 'a', 'an', 'in', 'of', 'is', 'at', 'by', 'on',
+		# Common verbs
+		'how', 'what', 'learn', 'get', 'make', 'use', 'do', 'can', 'will', 'should',
+		# Tutorial/video-related words
+		'tutorial', 'lesson', 'video', 'introduction', 'session', 'guide', 'course',
+		'part', 'episode', 'series', 'chapter', 'lecture',
+		# Common adjectives/qualifiers
+		'new', 'best', 'top', 'this', 'that', 'your', 'from', 'all', 'about', 'into',
+		'complete', 'full', 'easy', 'simple', 'quick', 'free', 'basic', 'advanced',
+		# Time-related
+		'2023', '2024', '2025', 'today', 'now',
+		# Numbers (filter 1-20 as they're usually not meaningful topics)
+		'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'
+	])
+	filtered = [w for w in tokens if w not in stopwords and len(w) > 2]
+	top_topics = [w for w, c in Counter(filtered).most_common(20)]
 
 	# Build weekly aggregation only from rows with valid dates
 	if not dfv_dates.empty:
@@ -245,9 +326,13 @@ def analyze_channel(channel_item, video_items):
 	else:
 		est_views_6m = 0.0
 
+	# Estimate subscriber growth based on view forecast
+	# Note: Using industry average conversion rate of 0.1% (views to subscribers)
+	# This is a rough estimate and actual conversion varies widely by channel type,
+	# content quality, and audience engagement.
 	est_subs_6m = None
 	try:
-		conversion_rate = 0.001
+		conversion_rate = 0.001  # 0.1% conversion rate (industry average)
 		est_subs_6m = int(est_views_6m * conversion_rate) if est_views_6m else 0
 	except Exception:
 		est_subs_6m = 0
@@ -261,24 +346,53 @@ def analyze_channel(channel_item, video_items):
 	
 	topic_diversity = len(set(filtered)) / max(1, len(filtered))
 	
-	# Quality score calculation: handle channels with only shorts or only long videos
-	# If no long videos, use shorts runtime for scoring (normalized differently)
+	# Quality Score Calculation (0-10 scale)
+	# Formula: (runtime*0.4 + engagement*0.4 + topic_diversity*0.2) * 10
+	# 
+	# Components:
+	# 1. Runtime Score (40% weight):
+	#    - Long videos: normalized to 20 minutes (1200s) as baseline for educational content
+	#    - Shorts: normalized to 30 seconds as baseline (different content type)
+	# 2. Engagement Score (40% weight):
+	#    - Normalized assuming 10% engagement rate = perfect score
+	#    - Engagement = (likes + comments) / views
+	# 3. Topic Diversity Score (20% weight):
+	#    - Normalized assuming 50% unique topics = perfect score
+	#    - Measures variety in content topics
+	#
+	# Handle channels with only shorts or only long videos
 	if longs_count > 0:
+		# Normalize to 20 minutes (typical educational video length)
 		score_runtime = min(1.0, max(0.0, (avg_runtime_long / (20*60))))
 	else:
-		# For shorts-only channels, use shorts duration normalized to 30 seconds as baseline
+		# For shorts-only channels, normalize to 30 seconds
 		# This prevents unfairly penalizing shorts-only channels
 		score_runtime = min(1.0, max(0.0, (avg_runtime_shorts / 30.0))) if shorts_count > 0 else 0.0
 	
+	# Engagement: 10% rate = 1.0 score
 	score_eng = min(1.0, max(0.0, engagement_rate_overall * 10))
+	# Topic diversity: 50% unique = 1.0 score
 	score_topic = min(1.0, max(0.0, topic_diversity * 2))
+	# Weighted average scaled to 0-10
 	quality_score = round((score_runtime*0.4 + score_eng*0.4 + score_topic*0.2) * 10, 2)
 
+	# Community Score Calculation (0-10 scale)
+	# Formula: (comments_score*0.6 + keyword_presence*0.4) * 10
+	#
+	# Components:
+	# 1. Comments Score (60% weight):
+	#    - Normalized to 10 comments per video = perfect score
+	#    - Measures direct audience interaction
+	# 2. Keyword Presence (40% weight):
+	#    - Proportion of videos mentioning community-building keywords
+	#    - Keywords: discord, telegram, community, facebook group, newsletter, etc.
+	#    - Note: May have false positives (e.g., "discord bot tutorial")
 	avg_comments = _safe_float(dfv['comments'].mean())
 	# Community presence: proportion of videos with community-related keywords
 	community_presence = min(1.0, max(0.0, videos_with_community_keywords / max(1, total_videos)))
-	# Community score: 60% based on average comments (normalized to 10 comments = 1.0), 40% based on keyword presence
+	# Comments: 10 per video = 1.0 score
 	comments_score = min(1.0, max(0.0, avg_comments / 10.0))
+	# Weighted average scaled to 0-10
 	score_community = round((comments_score * 0.6 + community_presence * 0.4) * 10, 2)
 
 	monetization_type = 'None Detected'

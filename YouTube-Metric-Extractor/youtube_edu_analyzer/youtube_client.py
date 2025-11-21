@@ -1,3 +1,12 @@
+"""
+YouTube API Client Module
+
+Provides a wrapper class for interacting with the YouTube Data API v3.
+Handles channel lookups, video fetching, and error handling.
+
+Classes:
+- YouTubeClient: Main client for YouTube API interactions
+"""
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 

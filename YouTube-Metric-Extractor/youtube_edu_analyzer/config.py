@@ -1,3 +1,12 @@
+"""
+Configuration Management Module
+
+Handles loading and managing configuration settings for the YouTube Analyzer.
+Primarily manages API key storage and retrieval.
+
+Functions:
+- load_api_key: Load YouTube API key from config file
+"""
 import json
 import os
 

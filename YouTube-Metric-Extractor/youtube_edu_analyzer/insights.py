@@ -1,3 +1,12 @@
+"""
+Insights Aggregation Module
+
+Aggregates analysis results from multiple channels to generate
+comparative insights and recommendations.
+
+Functions:
+- aggregate_insights: Combine multiple channel analyses into summary insights
+"""
 from collections import Counter
 
 import numpy as np
