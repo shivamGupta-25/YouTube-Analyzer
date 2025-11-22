@@ -91,7 +91,7 @@ class App:
         
         ttk.Label(api_frame, text='YouTube API Key:').grid(row=0, column=0, sticky='w', padx=(0, 10))
         self.api_key_var = tk.StringVar(value=load_api_key())
-        ttk.Entry(api_frame, textvariable=self.api_key_var, width=70).grid(row=0, column=1, sticky='we')
+        ttk.Entry(api_frame, textvariable=self.api_key_var, width=70, show='*').grid(row=0, column=1, sticky='we')
         current_row += 1
 
         # === Channel Input Section ===

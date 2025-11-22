@@ -1,3 +1,4 @@
 *api_key*
 /config/
 !config.py
+__pycache__
