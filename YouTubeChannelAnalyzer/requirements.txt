@@ -1,0 +1,12 @@
+# YouTube Channel Analyzer - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+pandas>=2.0.0
+requests>=2.31.0
+
+# Note: tkinter is included with Python standard library
+# If tkinter is not available, install it using:
+# - Windows: Included with Python installer
+# - macOS: brew install python-tk
+# - Linux: sudo apt-get install python3-tk
