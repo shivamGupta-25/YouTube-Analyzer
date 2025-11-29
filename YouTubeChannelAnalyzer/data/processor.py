@@ -58,6 +58,40 @@ def items_to_dataframe(items: list) -> pd.DataFrame:
         if comment_count is not None and view_count is not None and view_count > 0:
             comment_to_view = comment_count / view_count
 
+        # Calculate Overall Engagement Rate (%)
+        # Total interactions (likes + comments) divided by views
+        engagement_rate = None
+        if view_count is not None and view_count > 0:
+            total_interactions = (like_count or 0) + (comment_count or 0)
+            engagement_rate = (total_interactions / view_count) * 100
+
+        # Calculate Engagement Score (1-10 scale)
+        # Weighted formula combining multiple engagement signals
+        engagement_score = None
+        if like_to_view is not None or comment_to_view is not None:
+            # Use 0 as default if a ratio is None
+            like_ratio = like_to_view if like_to_view is not None else 0
+            comment_ratio = comment_to_view if comment_to_view is not None else 0
+            
+            # Velocity component: normalize avgViewsPerDay (cap at 1000 views/day = max score)
+            velocity_score = 0
+            if avg_views_per_day is not None:
+                velocity_score = min(avg_views_per_day / 1000, 1.0)
+            
+            # Weighted formula (scale 0-1, then convert to 1-10)
+            # 50% weight on likes, 30% on comments, 20% on velocity
+            raw_score = (
+                (like_ratio * 50) +
+                (comment_ratio * 30) +
+                (velocity_score * 20)
+            )
+            
+            # Convert to 1-10 scale
+            # Multiply by 100 to get 0-100 range, then divide by 10 to get 1-10
+            # Add 1 to ensure minimum score is 1 (not 0)
+            engagement_score = min(max((raw_score * 100) / 10, 1.0), 10.0)
+
+
         rows.append({
             "video_id": video_id,
             "title": title,
@@ -70,6 +104,8 @@ def items_to_dataframe(items: list) -> pd.DataFrame:
             "avgViewsPerDay": avg_views_per_day,
             "likeToViewRatio": like_to_view,
             "commentToViewRatio": comment_to_view,
+            "engagementRate": engagement_rate,
+            "engagementScore": engagement_score,
             "durationSeconds": duration_seconds,
             "categoryId": category_id,
             "tags": ",".join(tags) if tags else "",

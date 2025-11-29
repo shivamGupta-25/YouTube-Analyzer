@@ -311,7 +311,92 @@ commentToViewRatio = commentCount / viewCount
 
 ---
 
-#### 4. **Days Since Publish** (`daysSincePublish`)
+#### 4. **Overall Engagement Rate** (`engagementRate`)
+
+**Formula:**
+```
+engagementRate = ((likeCount + commentCount) / viewCount) × 100
+```
+
+**Example:**
+- Video has 500 likes
+- Video has 150 comments
+- Video has 10,000 views
+- engagementRate = ((500 + 150) / 10,000) × 100 = **6.5%**
+
+**Significance:**
+- Measures **total interaction percentage**
+- Combines all engagement actions into one metric
+- Shows what percentage of viewers actively engaged
+- Higher percentage = more engaging content
+
+**What's Good:**
+- **Excellent**: > 10% (highly engaging)
+- **Very Good**: 6-10% (strong engagement)
+- **Good**: 3-6% (above average)
+- **Average**: 1-3% (typical)
+- **Low**: < 1% (needs improvement)
+
+**Interpretation:**
+- Simple, easy-to-understand engagement metric
+- Useful for quick comparison across videos
+- Combines likes and comments into total interaction count
+- Higher rates indicate content that motivates viewers to act
+
+---
+
+#### 5. **Engagement Score** (`engagementScore`)
+
+**Formula:**
+```
+engagementScore = (
+    (likeToViewRatio × 50) +
+    (commentToViewRatio × 30) +
+    (min(avgViewsPerDay/1000, 1.0) × 20)
+) × 100 ÷ 10
+```
+
+**Scale:** 1.0 to 10.0
+
+**Example:**
+- likeToViewRatio = 0.05 (5%)
+- commentToViewRatio = 0.015 (1.5%)
+- avgViewsPerDay = 500
+- Calculation:
+  - Like component: 0.05 × 50 = 2.5
+  - Comment component: 0.015 × 30 = 0.45
+  - Velocity component: (500/1000) × 20 = 10
+  - Raw score: 2.5 + 0.45 + 10 = 12.95
+  - Final score: 12.95 × 100 ÷ 10 = **12.95** → capped at **10.0**
+
+**Significance:**
+- **Composite metric** combining multiple engagement signals
+- Weighted formula emphasizing different engagement types
+- Normalized 1-10 scale for easy interpretation
+- Accounts for both quality (ratios) and velocity (growth)
+
+**Component Weights:**
+- **50% - Likes**: Primary engagement indicator
+- **30% - Comments**: Deeper engagement signal
+- **20% - Velocity**: Trending/growth bonus (capped at 1000 views/day)
+
+**What's Good:**
+- **9-10**: Exceptional (viral/highly engaging content)
+- **7-8**: Very Good (strong performer)
+- **5-6**: Good (above average)
+- **3-4**: Moderate (average performance)
+- **1-2**: Low (needs improvement)
+
+**Interpretation:**
+- Single number to compare video performance
+- Balances engagement quality with growth velocity
+- Higher scores indicate content that resonates well AND gains traction
+- Useful for quickly identifying top-performing videos
+- Sort by this column to find your best content
+
+---
+
+#### 6. **Days Since Publish** (`daysSincePublish`)
 
 **Formula:**
 ```
@@ -328,25 +413,35 @@ daysSincePublish = (currentTime - publishedAt) / 86400 seconds
 ### 📈 How to Use These Metrics Together
 
 #### Finding Your Best Content
-1. Sort by **likeToViewRatio** (descending) to find most-loved videos
-2. Look for patterns in titles, topics, or formats
-3. Create more content like your top performers
+1. Sort by **engagementScore** (descending) to instantly see top performers
+2. Look for videos with scores 7+ for exceptional content
+3. Analyze patterns in titles, topics, or formats of high-scoring videos
+4. Create more content like your top performers
+
+#### Quick Performance Overview
+1. Sort by **engagementRate** (descending) for overall engagement snapshot
+2. Videos with 6%+ engagement rate are strong performers
+3. Compare engagement rate across different content types
+4. Identify which topics drive the most interaction
 
 #### Identifying Trending Videos
 1. Sort by **avgViewsPerDay** (descending)
 2. Videos with high values are gaining traction
 3. Consider promoting these on social media
+4. High velocity + high engagement score = viral potential
 
-#### Understanding Engagement
+#### Understanding Engagement Quality
 1. Compare **likeToViewRatio** and **commentToViewRatio**
 2. High likes + low comments = entertaining but not discussion-worthy
 3. High comments + moderate likes = thought-provoking or controversial
+4. Both high = exceptional content that resonates deeply
 
 #### Benchmarking Performance
 1. Export data to CSV
 2. Calculate average metrics for your channel
 3. Compare individual videos to channel average
 4. Identify outliers (both good and bad)
+5. Use **engagementScore** as your primary benchmark metric
 
 ---
 

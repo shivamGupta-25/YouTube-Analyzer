@@ -138,7 +138,8 @@ class YouTubeAnalyzerApp(tk.Tk):
 
         # Treeview for results
         columns = ("video_id", "title", "viewCount", "likeCount", "commentCount", "publishDate", 
-                   "avgViewsPerDay", "likeToViewRatio", "commentToViewRatio", "durationSeconds", "tags")
+                   "avgViewsPerDay", "likeToViewRatio", "commentToViewRatio", "engagementRate", 
+                   "engagementScore", "durationSeconds", "tags")
         
         # Create treeview with scrollbars
         tree_container = ttk.Frame(results_frame)
@@ -157,6 +158,8 @@ class YouTubeAnalyzerApp(tk.Tk):
             "avgViewsPerDay": ("Avg Views/Day", 100, 80),
             "likeToViewRatio": ("Like Ratio", 80, 70),
             "commentToViewRatio": ("Comment Ratio", 100, 80),
+            "engagementRate": ("Engagement %", 100, 80),
+            "engagementScore": ("Score (1-10)", 90, 80),
             "durationSeconds": ("Duration (s)", 90, 70),
             "tags": ("Tags", 150, 100)
         }
@@ -356,6 +359,8 @@ class YouTubeAnalyzerApp(tk.Tk):
                 round(row.get("avgViewsPerDay"),2) if row.get("avgViewsPerDay") is not None else None,
                 round(row.get("likeToViewRatio"),4) if row.get("likeToViewRatio") is not None else None,
                 round(row.get("commentToViewRatio"),4) if row.get("commentToViewRatio") is not None else None,
+                round(row.get("engagementRate"),2) if row.get("engagementRate") is not None else None,
+                round(row.get("engagementScore"),2) if row.get("engagementScore") is not None else None,
                 row.get("durationSeconds"),
                 (row.get("tags")[:80] + "...") if row.get("tags") and len(row.get("tags"))>80 else row.get("tags"),
             )
