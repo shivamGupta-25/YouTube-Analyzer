@@ -410,8 +410,8 @@ def analyze_channel(channel_item, video_items):
 		'avg_uploads_per_week': round(uploads_per_week,2),
 		'avg_uploads_long_per_week': round(longs_per_week,2),
 		'avg_uploads_shorts_per_week': round(shorts_per_week,2),
-		'avg_runtime_long_seconds': round(avg_runtime_long, 2),
-		'avg_runtime_shorts_seconds': round(avg_runtime_shorts, 2),
+		'avg_runtime_long_minutes': round(avg_runtime_long / 60, 2),
+		'avg_runtime_shorts_minutes': round(avg_runtime_shorts / 60, 2),
 		'engagement_pct_popular_videos': round(float(top_engagement_pct),2),
 		'top_5_long_titles': top5_longs,
 		'top_5_shorts_titles': top5_shorts,
@@ -420,7 +420,6 @@ def analyze_channel(channel_item, video_items):
 		'est_views_next_6_months': int(est_views_6m) if est_views_6m is not None else None,
 		'est_subs_next_6_months': int(est_subs_6m) if est_subs_6m is not None else None,
 		'quality_score_0_10': quality_score,
-		'community_score_0_10': score_community,
 		'monetization_inference': monetization_type,
 		'avg_views_sample': round(float(avg_views),2),
 		'engagement_rate_overall_pct': round(float(engagement_rate_overall*100),2)

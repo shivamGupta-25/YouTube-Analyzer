@@ -41,8 +41,8 @@ CSV_COLUMN_HEADERS = {
     'avg_uploads_per_week': 'Average Uploads Per Week',
     'avg_uploads_long_per_week': 'Long Videos Per Week',
     'avg_uploads_shorts_per_week': 'Shorts Per Week',
-    'avg_runtime_long_seconds': 'Average Long Video Duration (seconds)',
-    'avg_runtime_shorts_seconds': 'Average Shorts Duration (seconds)',
+    'avg_runtime_long_minutes': 'Average Long Video Duration (minutes)',
+    'avg_runtime_shorts_minutes': 'Average Shorts Duration (minutes)',
     'engagement_pct_popular_videos': 'Engagement % (Top Videos)',
     'top_5_long_titles': 'Top 5 Long Videos',
     'top_5_shorts_titles': 'Top 5 Shorts',
@@ -51,7 +51,6 @@ CSV_COLUMN_HEADERS = {
     'est_views_next_6_months': 'Estimated Views (6 Months)',
     'est_subs_next_6_months': 'Estimated New Subscribers (6 Months)',
     'quality_score_0_10': 'Quality Score (0-10)',
-    'community_score_0_10': 'Community Score (0-10)',
     'monetization_inference': 'Monetization Strategy',
     'avg_views_sample': 'Average Views Per Video',
     'engagement_rate_overall_pct': 'Overall Engagement Rate %'
@@ -61,7 +60,7 @@ CSV_COLUMN_HEADERS = {
 class App:
     def __init__(self, root):
         self.root = root
-        root.title('YouTube Channel Analyzer - Extended Metrics')
+        root.title('YouTube Metric Extractor')
         # Make the window responsive
         root.rowconfigure(0, weight=1)
         root.columnconfigure(0, weight=1)
