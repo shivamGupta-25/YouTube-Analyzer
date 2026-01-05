@@ -50,6 +50,19 @@ def parse_iso8601_duration(dur: str) -> int:
     return seconds
 
 
+def format_duration(seconds: int) -> str:
+    """
+    Convert seconds to HH:MM:SS string.
+    """
+    if not seconds:
+        return "00:00"
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    if h > 0:
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
 def iso8601_to_datetime(s: str) -> datetime.datetime:
     """Convert ISO 8601 string to datetime object."""
     # Example: 2021-08-03T15:30:20Z

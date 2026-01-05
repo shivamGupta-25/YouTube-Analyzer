@@ -139,7 +139,7 @@ class YouTubeAnalyzerApp(tk.Tk):
         # Treeview for results
         columns = ("video_id", "title", "viewCount", "likeCount", "commentCount", "publishDate", 
                    "avgViewsPerDay", "likeToViewRatio", "commentToViewRatio", "engagementRate", 
-                   "engagementScore", "durationSeconds", "tags")
+                   "engagementScore", "durationStr", "tags")
         
         # Create treeview with scrollbars
         tree_container = ttk.Frame(results_frame)
@@ -160,7 +160,7 @@ class YouTubeAnalyzerApp(tk.Tk):
             "commentToViewRatio": ("Comment Ratio", 100, 80),
             "engagementRate": ("Engagement %", 100, 80),
             "engagementScore": ("Score (1-10)", 90, 80),
-            "durationSeconds": ("Duration (s)", 90, 70),
+            "durationStr": ("Duration", 90, 70),
             "tags": ("Tags", 150, 100)
         }
         
@@ -228,7 +228,9 @@ class YouTubeAnalyzerApp(tk.Tk):
                     return
                 from_date = datetime.datetime.fromisoformat(fstr).replace(tzinfo=datetime.timezone.utc)
                 if tstr:
-                    to_date = datetime.datetime.fromisoformat(tstr).replace(tzinfo=datetime.timezone.utc)
+                    # Parse 'to' date and set it to end of day (23:59:59) for inclusivity
+                    base_to = datetime.datetime.fromisoformat(tstr)
+                    to_date = base_to.replace(hour=23, minute=59, second=59, tzinfo=datetime.timezone.utc)
                     # Validate date range
                     if to_date < from_date:
                         messagebox.showerror(
@@ -254,8 +256,10 @@ class YouTubeAnalyzerApp(tk.Tk):
                 messagebox.showerror("Date Error", f"Could not parse dates: {e}")
                 return
         # convert to RFC3339 ISO for API
-        published_after_iso = from_date.isoformat().replace("+00:00", "Z")
-        published_before_iso = to_date.isoformat().replace("+00:00", "Z")
+        # convert to RFC3339 ISO for API
+        # Use timespec='seconds' to strip microseconds which API might reject
+        published_after_iso = from_date.isoformat(timespec='seconds').replace("+00:00", "Z")
+        published_before_iso = to_date.isoformat(timespec='seconds').replace("+00:00", "Z")
         
         # Resolve channel ID
         self.set_status("Resolving channel ID...")
@@ -361,7 +365,7 @@ class YouTubeAnalyzerApp(tk.Tk):
                 round(row.get("commentToViewRatio"),4) if row.get("commentToViewRatio") is not None else None,
                 round(row.get("engagementRate"),2) if row.get("engagementRate") is not None else None,
                 round(row.get("engagementScore"),2) if row.get("engagementScore") is not None else None,
-                row.get("durationSeconds"),
+                row.get("durationStr"),
                 (row.get("tags")[:80] + "...") if row.get("tags") and len(row.get("tags"))>80 else row.get("tags"),
             )
             self.tree.insert("", tk.END, values=vals)

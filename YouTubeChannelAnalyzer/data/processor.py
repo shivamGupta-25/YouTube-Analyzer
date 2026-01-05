@@ -7,7 +7,7 @@ Data processing functions for YouTube video analysis.
 
 import datetime
 import pandas as pd
-from utils.helpers import parse_iso8601_duration, iso8601_to_datetime, safe_int
+from utils.helpers import parse_iso8601_duration, format_duration, iso8601_to_datetime, safe_int
 from api.youtube_api import YOUTUBE_VIDEO_URL
 
 
@@ -107,6 +107,7 @@ def items_to_dataframe(items: list) -> pd.DataFrame:
             "engagementRate": engagement_rate,
             "engagementScore": engagement_score,
             "durationSeconds": duration_seconds,
+            "durationStr": format_duration(duration_seconds),
             "categoryId": category_id,
             "tags": ",".join(tags) if tags else "",
             "thumbnailUrl": thumbnail,

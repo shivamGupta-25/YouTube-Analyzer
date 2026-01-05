@@ -9,6 +9,7 @@ import re
 import time
 import json
 import requests
+import datetime
 
 
 # Custom exception for API errors
@@ -26,6 +27,7 @@ YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v={id}"
 YOUTUBE_API_SEARCH = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_API_VIDEOS = "https://www.googleapis.com/youtube/v3/videos"
 YOUTUBE_API_CHANNELS = "https://www.googleapis.com/youtube/v3/channels"
+YOUTUBE_API_PLAYLIST_ITEMS = "https://www.googleapis.com/youtube/v3/playlistItems"
 
 
 def parse_api_error(status_code: int, response_text: str) -> tuple:
@@ -194,54 +196,119 @@ def resolve_channel_id(api_key: str, maybe_id_or_url: str) -> str:
     raise ValueError("Could not resolve channel ID. Provide a proper channel ID (starts with 'UC...') or a full channel URL.")
 
 
+def get_uploads_playlist_id(api_key: str, channel_id: str) -> str:
+    """Get the ID of the 'Uploads' playlist for a channel."""
+    params = {
+        "part": "contentDetails",
+        "id": channel_id,
+        "key": api_key
+    }
+    r = requests.get(YOUTUBE_API_CHANNELS, params=params)
+    if not r.ok:
+        error_type, user_msg, tech_details = parse_api_error(r.status_code, r.text)
+        raise APIError(error_type, user_msg, tech_details)
+    
+    r.encoding = 'utf-8'
+    js = r.json()
+    items = js.get("items", [])
+    if not items:
+        # Channel might not exist or be accessible
+        raise APIError("not_found", "Channel not found or no access.", f"Channel ID: {channel_id}")
+        
+    # extract uploads playlist id
+    return items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+
 def fetch_video_ids_for_channel(api_key: str, channel_id: str, published_after_iso: str, published_before_iso: str = None) -> list:
     """
-    Uses search.list to fetch video IDs for a channel within a date range.
+    Uses playlistItems.list (Uploads playlist) to fetch video IDs.
+    This is more reliable than search.list and captures all videos.
     
     Args:
         api_key: YouTube Data API key
         channel_id: YouTube channel ID
         published_after_iso: ISO 8601 timestamp for start of range (inclusive)
         published_before_iso: Optional ISO 8601 timestamp for end of range (exclusive)
-    
+        
     Returns:
         List of video IDs (strings)
     """
+    # 1. Get Uploads Playlist ID
+    uploads_id = get_uploads_playlist_id(api_key, channel_id)
+    
     video_ids = []
+    
+    # Parse dates for comparison
+    # Helper to parse YYYY-MM-DDTHH:MM:SSZ
+    def parse_dt(s):
+        # Handle cases with or without Z
+        s = s.replace("Z", "+00:00")
+        return datetime.datetime.fromisoformat(s)
+
+    dt_after = parse_dt(published_after_iso)
+    dt_before = parse_dt(published_before_iso) if published_before_iso else None
+    
     params = {
-        "part": "id",
-        "channelId": channel_id,
+        "part": "contentDetails,snippet",
+        "playlistId": uploads_id,
         "maxResults": 50,
-        "order": "date",
-        "publishedAfter": published_after_iso,
-        "type": "video",
         "key": api_key
     }
-    
-    # Add publishedBefore parameter if specified for more efficient filtering
-    if published_before_iso:
-        params["publishedBefore"] = published_before_iso
     
     next_page_token = None
     while True:
         if next_page_token:
             params["pageToken"] = next_page_token
-        r = requests.get(YOUTUBE_API_SEARCH, params=params)
+            
+        r = requests.get(YOUTUBE_API_PLAYLIST_ITEMS, params=params)
         if not r.ok:
             error_type, user_msg, tech_details = parse_api_error(r.status_code, r.text)
             raise APIError(error_type, user_msg, tech_details)
-        r.encoding = 'utf-8'  # Ensure UTF-8 encoding
+            
+        r.encoding = 'utf-8'
         js = r.json()
         items = js.get("items", [])
+        
+        if not items:
+            break
+            
         for it in items:
-            vid = it["id"].get("videoId")
-            if vid:
-                video_ids.append(vid)
+            # For playlistItems, the date is in snippet.publishedAt or contentDetails.videoPublishedAt
+            # We prefer contentDetails.videoPublishedAt if available
+            pub_str = it.get("contentDetails", {}).get("videoPublishedAt") or it.get("snippet", {}).get("publishedAt")
+            vid = it.get("contentDetails", {}).get("videoId")
+            
+            if not vid or not pub_str:
+                continue
+                
+            try:
+                vid_dt = parse_dt(pub_str)
+            except:
+                continue
+                
+            # Logic: Uploads are usually returned newest first.
+            # If vid_dt > dt_before, we simply skip this video but continue (it's too new)
+            # If vid_dt < dt_after, we stop (it's too old, and since they are ordered, subsequent ones will be older)
+            
+            if dt_before and vid_dt > dt_before:
+                continue
+                
+            if vid_dt < dt_after:
+                # Found a video older than our start date.
+                # Since playlist is usually reverse-chronological, we can stop here.
+                # However, sometimes order isn't perfect, but for 'Uploads' it's generally reliable.
+                # To be safe, we can stop.
+                return video_ids
+            
+            video_ids.append(vid)
+            
         next_page_token = js.get("nextPageToken")
         if not next_page_token:
             break
-        # small sleep to be polite with quota
+            
+        # small sleep to be polite
         time.sleep(0.1)
+        
     return video_ids
 
 
