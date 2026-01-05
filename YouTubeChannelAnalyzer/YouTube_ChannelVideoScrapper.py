@@ -8,6 +8,8 @@ import isodate
 from datetime import datetime, timedelta
 import re
 import threading
+import json
+import os
 
 # --- Configuration & Theme ---
 ctk.set_appearance_mode("Dark")
@@ -36,6 +38,7 @@ class YouTubeDataFetcherApp(ctk.CTk):
         self.grid_rowconfigure(4, weight=1) # Log/Preview
 
         self._create_widgets()
+        self.load_api_key_from_config()
 
     def _create_widgets(self):
         # 1. Header
@@ -111,6 +114,20 @@ class YouTubeDataFetcherApp(ctk.CTk):
         # 5. Log Output
         self.log_box = ctk.CTkTextbox(self, state="disabled", font=("Consolas", 12))
         self.log_box.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="nsew")
+
+    def load_api_key_from_config(self):
+        """Loads API key from config/api_key.json if available."""
+        try:
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "api_key.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    api_key = config.get("api_key", "")
+                    if api_key:
+                        self.api_key_var.set(api_key)
+                        self.log(f"Loaded API Key from config.")
+        except Exception as e:
+            self.log(f"Failed to load API config: {e}")
 
     def _toggle_date_inputs(self, choice):
         if choice == "Custom Range":
